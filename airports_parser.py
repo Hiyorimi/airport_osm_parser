@@ -14,6 +14,8 @@ class AerowayNodesHandler(osmium.SimpleHandler):
         self.line = 0
         self.coordinates = []
         self.geoms = []
+        self.envelope = False
+        self.minimum_rotated_rectangle = False
         self.wkbfab = osmium.geom.WKBFactory()
         
     def get_nodes_in_area(self, buffer_const):
@@ -39,8 +41,13 @@ class AerowayNodesHandler(osmium.SimpleHandler):
         with open ("{}_areas.txt".format(filename), "wb") as fp:
             for area in self.geoms:
                 for geom in area.geoms:
+                    exported_geom = geom
+                    if self.envelope:
+                        exported_geom = geom.envelope
+                    elif self.minimum_rotated_rectangle:
+                        exported_geom = geom.minimum_rotated_rectangle
                     line = b''
-                    for coord in list(geom.exterior.coords):
+                    for coord in list(exported_geom.exterior.coords):
                         line += "{},{}".format(coord[1],coord[0])\
                              .encode('utf-8')
                     line += b'\n'
@@ -84,6 +91,18 @@ if __name__ == "__main__":
                         help="File to load OSM-formatted data from.", 
                         required=True)
     
+    parser.add_argument('-e', "--envelope",
+                        help="Outputs smallest rectangular polygon (with sides parallel to the\
+ coordinate axes) that contains the object.", 
+                        required=False)
+
+    parser.add_argument('-m', "--minimum-rotated-rectangle",
+                        help="Outputs general minimum bounding rectangle that contains the\
+ object. Unlike envelope this rectangle is not constrained to be parallel to the coordinate\
+ axes. If the convex hull of the object is a degenerate (line or point) this degenerate is\
+ returned.", 
+                        required=False)
+    
     parser.add_argument('-o', "--output-id",
                         help="Meaningful filename part to export data to.\
                         $OUTPUT_ID_area.txt and $OUTPUT_ID_node.txt files\
@@ -100,6 +119,13 @@ if __name__ == "__main__":
             args.output_id))
 
     h = AerowayNodesHandler()
+
+    if args.envelope and args.minimum_rotated_rectangle:
+        args.envelope = False
+
+    h.envelope = args.envelope
+    h.minimum_rotated_rectangle = args.minimum_rotated_rectangle
+
     h.apply_file("{}".format(args.input_file), locations=True, 
                                                     idx='flex_mem')
 
