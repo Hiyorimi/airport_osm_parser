@@ -4,6 +4,27 @@ import osmium
 import shapely.wkb as wkblib
 import argparse
 from shapely.geometry import Point, Polygon
+from math import cos, sin, asin, atan2, sqrt, radians, degrees
+
+def _hsin(theta):
+    return pow(sin(theta/2), 2)
+
+def distance(lat1, lon1, lat2, lon2):
+    """
+    Calulates distance between two points set as 4 coordinates.
+    """
+    # convert to radians
+    la1 = radians(lat1)
+    lo1 = radians(lon1) 
+    la2 = radians(lat2) 
+    lo2 = radians(lon2)
+
+    # must cast radius as float to multiply later
+    r = 6378100.0 # Earth radius in meters.
+
+    h = _hsin(la2-la1) + cos(la1)*cos(la2)*_hsin(lo2-lo1)
+
+    return 2 * r * asin(sqrt(h))
 
 class AerowayNodesHandler(osmium.SimpleHandler):
     BUFFER_DISTANCE = 0.00005
@@ -53,6 +74,23 @@ class AerowayNodesHandler(osmium.SimpleHandler):
                     line += b'\n'
                     fp.write(line)
 
+    def export_centroids(self, filename):
+        with open ("{}_centroids.txt".format(filename), "wb") as fp:
+            for area in self.geoms:
+                for geom in area.geoms:
+                    centroid = list(geom.centroid.coords)[0]
+                    rectangle = geom.minimum_rotated_rectangle
+                    maximal_distance = 0
+                    for point in list(rectangle.exterior.coords):
+                        radius = distance(point[0], point[1], centroid[0], centroid[1])
+                        if radius > maximal_distance:
+                            maximal_distance = radius
+                    line = b''
+                    line += "{},{},{}".format(centroid[0],centroid[1], maximal_distance)\
+                                .encode('utf-8')
+                    line += b'\n'
+                    fp.write(line)
+
     # https://wiki.openstreetmap.org/wiki/Aeroways
     def is_aeroway_airport(self, tags):
         if 'aeroway' in tags:
@@ -94,6 +132,7 @@ if __name__ == "__main__":
     parser.add_argument('-e', "--envelope",
                         help="Outputs smallest rectangular polygon (with sides parallel to the\
  coordinate axes) that contains the object.", 
+                        action='store_true',
                         required=False)
 
     parser.add_argument('-m', "--minimum-rotated-rectangle",
@@ -101,6 +140,13 @@ if __name__ == "__main__":
  object. Unlike envelope this rectangle is not constrained to be parallel to the coordinate\
  axes. If the convex hull of the object is a degenerate (line or point) this degenerate is\
  returned.", 
+                        action='store_true',
+                        required=False)
+
+    parser.add_argument('-c', "--centroids",
+                        help="Outputs area centroids with the radius, so that area lies within\
+ given circle area.", 
+                        action='store_true',
                         required=False)
     
     parser.add_argument('-o', "--output-id",
@@ -117,6 +163,9 @@ if __name__ == "__main__":
             args.input_file, 
             args.output_id, 
             args.output_id))
+        if args.centroids:
+            print("{}_centroids.txt will be created, since --centroids option\
+ invoked.".format(args.output_id))
 
     h = AerowayNodesHandler()
 
@@ -134,6 +183,9 @@ if __name__ == "__main__":
          (len(h.coordinates), len(h.geoms)))
 
     h.export("{}".format(args.output_id))
+
+    if args.centroids:
+        h.export_centroids("{}".format(args.output_id))
 
     if args.verbose:
         print("Export finished")
