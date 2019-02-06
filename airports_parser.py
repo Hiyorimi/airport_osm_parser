@@ -69,7 +69,7 @@ class AerowayNodesHandler(osmium.SimpleHandler):
                         exported_geom = geom.minimum_rotated_rectangle
                     line = b''
                     for coord in list(exported_geom.exterior.coords):
-                        line += "{},{}".format(coord[1],coord[0])\
+                        line += "{},{};".format(coord[1],coord[0])\
                              .encode('utf-8')
                     line += b'\n'
                     fp.write(line)
@@ -86,7 +86,7 @@ class AerowayNodesHandler(osmium.SimpleHandler):
                         if radius > maximal_distance:
                             maximal_distance = radius
                     line = b''
-                    line += "{},{},{}".format(centroid[0],centroid[1], maximal_distance)\
+                    line += "{},{},{};".format(centroid[0],centroid[1], maximal_distance)\
                                 .encode('utf-8')
                     line += b'\n'
                     fp.write(line)
