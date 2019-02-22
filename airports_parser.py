@@ -82,17 +82,21 @@ class AerowayNodesHandler(osmium.SimpleHandler):
                     rectangle = geom.minimum_rotated_rectangle
                     maximal_distance = 0
                     for point in list(rectangle.exterior.coords):
-                        radius = distance(point[0], point[1], centroid[0], centroid[1])
+                        radius = distance(point[1], point[0], centroid[1], centroid[0])
                         if radius > maximal_distance:
                             maximal_distance = radius
                     line = b''
-                    line += "{},{},{};".format(centroid[0],centroid[1], maximal_distance)\
+                    line += "{},{},{};".format(centroid[1],centroid[0], maximal_distance)\
                                 .encode('utf-8')
                     line += b'\n'
                     fp.write(line)
 
     # https://wiki.openstreetmap.org/wiki/Aeroways
     def is_aeroway_airport(self, tags):
+        if 'aerodrome' in tags:
+            return True
+        if 'iata' in tags:
+            return True
         if 'aeroway' in tags:
             if tags['aeroway'] == "aerodrome":
                 return True
